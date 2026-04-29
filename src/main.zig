@@ -1,6 +1,9 @@
 const std = @import("std");
-const parser = @import("parser.zig");
-const interpreter = @import("interpreter.zig");
+const parse = @import("parse.zig");
+const interpret = @import("interpret.zig");
+
+// 4MB
+const MAX_BYTES: usize = 4096 * 1000;
 
 pub fn main() !void {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -8,18 +11,28 @@ pub fn main() !void {
         const check = gpa.deinit();
         if (check == .leak) @panic("Memory leak detected!");
     }
+
     const allocator = gpa.allocator();
+    const args = try std.process.argsAlloc(allocator);
+    defer std.process.argsFree(allocator, args);
 
-    const code =
-        \\-1
-        \\p_num
-        \\@2
-        \\-2
-        \\p_num
-    ;
+    if (args.len > 2) {
+        std.debug.print("Usage: hanuman [FILE]", .{});
+        return;
+    }
 
-    const stmts = try parser.parse(allocator, code);
-    defer allocator.free(stmts);
+    const file_path = args[1];
+    const file = try std.fs.cwd().openFile(file_path, .{});
+    defer file.close();
 
-    interpreter.interpret(stmts);
+    const code = try file.readToEndAlloc(allocator, MAX_BYTES);
+    defer allocator.free(code);
+
+    var parser = parse.Parser.init(allocator);
+    defer parser.deinit();
+    const stmts = try parser.parse(code);
+
+    var interpreter = interpret.Interpreter.init(allocator);
+    defer interpreter.deinit();
+    try interpreter.interpret(stmts);
 }

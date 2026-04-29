@@ -1,7 +1,8 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
-const parser = @import("parser.zig");
-const Stmt = parser.Stmt;
+const parse = @import("parse.zig");
+const Stmt = parse.Stmt;
+const Parser = parse.Parser;
 
 var memory = [_]i32{0} ** (1 << 16);
 
@@ -21,6 +22,7 @@ pub fn interpret(stmts: []Stmt) void {
             .print_num => {
                 std.debug.print("{d}", .{memory[current]});
             },
+            else => unreachable,
         }
     }
 }
@@ -33,8 +35,10 @@ test "interpret" {
         \\p_num
     ;
 
-    const stmts = try parser.parse(std.testing.allocator, code);
-    defer std.testing.allocator.free(stmts);
+    var parser = parse.Parser.init(std.testing.allocator);
+
+    const stmts = try parser.parse(code);
+    defer parser.deinit();
 
     interpret(stmts);
 

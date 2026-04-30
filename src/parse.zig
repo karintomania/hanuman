@@ -1,14 +1,62 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const plus_affixes = [_]Affix{
+const affixes_plus = [_]Affix{
     .{ .prefix = "+", .suffix = "" },
     .{ .prefix = "たった", .suffix = "秒でも長く眠りたい" },
 };
-const minus_affixes = [_]Affix{.{ .prefix = "-", .suffix = "" }};
-const move_affixes = [_]Affix{.{ .prefix = "@", .suffix = "" }};
-const func_def_affixes = [_]Affix{.{ .prefix = "fn_", .suffix = "" }};
-const func_call_affixes = [_]Affix{.{ .prefix = "call_", .suffix = "" }};
+const affixes_minus = [_]Affix{
+    .{ .prefix = "-", .suffix = "" },
+    .{ .prefix = "見張り番の俺の落ち度を糾弾", .suffix = "円奪って先輩消える" },
+};
+const affixes_multi = [_]Affix{
+    .{ .prefix = "*", .suffix = "" },
+    .{ .prefix = "ヘッドホンをして", .suffix = "秒ごとに変わる表情" },
+};
+const affixes_div = [_]Affix{
+    .{ .prefix = "/", .suffix = "" },
+    .{ .prefix = "零コンマ", .suffix = "秒で片付く命" },
+};
+const affixes_mod = [_]Affix{
+    .{ .prefix = "%", .suffix = "" },
+    .{ .prefix = "何しろ僕らは", .suffix = "歳だった" },
+};
+const affixes_move = [_]Affix{
+    .{ .prefix = "@", .suffix = "" },
+    .{ .prefix = "演奏ハヌマーンでアナーキー・イン・ザ・", .suffix = "K" },
+};
+const affixes_func_def = [_]Affix{
+    .{ .prefix = "fn_", .suffix = "" },
+    .{ .prefix = "そういちいち怒鳴るなって誰だって", .suffix = "したい" },
+};
+const affixes_func_call = [_]Affix{
+    .{ .prefix = "call_", .suffix = "" },
+    .{ .prefix = "もういちいち言わんだけで俺だって", .suffix = "したい" },
+};
+const affixes_echo = [_]Affix{
+    .{ .prefix = "echo \"", .suffix = "\"" },
+    .{ .prefix = "捨て看板の女がぼやく「", .suffix = "」" },
+};
+
+const keyword_print_digit = "換気口の下でギニアピッグが云う";
+const keyword_ascii_print_digit = "pd";
+const keyword_print_unicode = "こめかみを指して痩せた鴉が云う";
+const keyword_ascii_print_unicode = "pu";
+const keyword_loop_start = "気に喰わんね輪廻の概念 ";
+const keyword_ascii_loop_start = "[";
+const keyword_loop_end = "全くを以って気に入らないね";
+const keyword_ascii_loop_end = "]";
+
+const keyword_reset_cell = "およそ空っぽの頭の中やけに響く英語のアナウンス";
+const keyword_ascii_reset_cell = "_";
+const keyword_cond_start = "どうして?の問いに";
+const keyword_ascii_cond_start = "?";
+const keyword_cond_else = "愛してるって";
+const keyword_ascii_cond_else = ":";
+const keyword_cond_end = "答えになってないぜ兄さん";
+const keyword_ascii_cond_end = ";";
+const keyword_rand = "名前を聞かれ思わずデタラメな名前を名乗ってしまった";
+const keyword_ascii_rand = "rand";
 
 const StmtType = enum {
     add,
@@ -46,20 +94,20 @@ pub const Parser = struct {
         while (itr.next()) |line_raw| {
             const line = std.mem.trim(u8, line_raw, " \t\r\n");
 
-            if (has_affix(&plus_affixes, line)) {
-                const num_str = strip_line(&plus_affixes, line);
+            if (has_affix(&affixes_plus, line)) {
+                const num_str = strip_line(&affixes_plus, line);
                 const n = try std.fmt.parseInt(i32, num_str, 10);
                 try stmts.append(allocator, Stmt{ .add = StmtAdd{ .num = n } });
             }
 
-            if (has_affix(&minus_affixes, line)) {
-                const num_str = strip_line(&minus_affixes, line);
+            if (has_affix(&affixes_minus, line)) {
+                const num_str = strip_line(&affixes_minus, line);
                 const n = try std.fmt.parseInt(i32, num_str, 10);
                 try stmts.append(allocator, Stmt{ .minus = StmtMinus{ .num = n } });
             }
 
-            if (has_affix(&move_affixes, line)) {
-                const num_str = strip_line(&move_affixes, line);
+            if (has_affix(&affixes_move, line)) {
+                const num_str = strip_line(&affixes_move, line);
                 const n = try std.fmt.parseInt(u16, num_str, 10);
                 try stmts.append(allocator, Stmt{ .move = StmtMove{ .idx = n } });
             }
@@ -69,8 +117,8 @@ pub const Parser = struct {
             }
 
             // func definition
-            if (has_affix(&func_def_affixes, line)) {
-                const name = strip_line(&func_def_affixes, line);
+            if (has_affix(&affixes_func_def, line)) {
+                const name = strip_line(&affixes_func_def, line);
                 const body = try self.parse_level(itr, .func);
 
                 try stmts.append(allocator, Stmt{ .func_def = StmtFuncDef{
@@ -84,8 +132,8 @@ pub const Parser = struct {
                 return stmts.toOwnedSlice(allocator);
             }
 
-            if (has_affix(&func_call_affixes, line)) {
-                const name = strip_line(&func_call_affixes, line);
+            if (has_affix(&affixes_func_call, line)) {
+                const name = strip_line(&affixes_func_call, line);
                 try stmts.append(allocator, Stmt{ .func_call = StmtFuncCall{ .name = name } });
             }
 
@@ -215,7 +263,7 @@ fn strip_line(affixes: []const Affix, line: []const u8) []const u8 {
 test "strip line" {
     const input = "たった1秒でも長く眠りたい";
 
-    const res = strip_line(&plus_affixes, input);
+    const res = strip_line(&affixes_plus, input);
 
     try std.testing.expectEqualStrings("1", res);
 }
@@ -230,7 +278,7 @@ test "has prefix and suffix" {
     const expected = [_]bool{ true, false, false };
 
     for (inputs, 0..) |in, i| {
-        const res = has_affix(&plus_affixes, in);
+        const res = has_affix(&affixes_plus, in);
         try std.testing.expectEqual(expected[i], res);
     }
 }

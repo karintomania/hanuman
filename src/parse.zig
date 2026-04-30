@@ -61,12 +61,19 @@ const keyword_ascii_rand = "rand";
 const StmtType = enum {
     add,
     minus,
+    multi,
+    div,
+    mod,
+    reset,
+    rand,
     move,
-    print_num,
     func_def,
     func_call,
     loop,
     cond,
+    print_digit,
+    print_unicode,
+    echo,
 };
 
 const Affix = struct {
@@ -106,14 +113,49 @@ pub const Parser = struct {
                 try stmts.append(allocator, Stmt{ .minus = StmtMinus{ .num = n } });
             }
 
+            if (has_affix(&affixes_multi, line)) {
+                const num_str = strip_line(&affixes_multi, line);
+                const n = try std.fmt.parseInt(i32, num_str, 10);
+                try stmts.append(allocator, Stmt{ .multi = StmtMulti{ .num = n } });
+            }
+
+            if (has_affix(&affixes_div, line)) {
+                const num_str = strip_line(&affixes_div, line);
+                const n = try std.fmt.parseInt(i32, num_str, 10);
+                try stmts.append(allocator, Stmt{ .div = StmtDiv{ .num = n } });
+            }
+
+            if (has_affix(&affixes_mod, line)) {
+                const num_str = strip_line(&affixes_mod, line);
+                const n = try std.fmt.parseInt(i32, num_str, 10);
+                try stmts.append(allocator, Stmt{ .mod = StmtMod{ .num = n } });
+            }
+
+            if (std.mem.eql(u8, line, keyword_ascii_reset_cell) or std.mem.eql(u8, line, keyword_reset_cell)) {
+                try stmts.append(allocator, Stmt{ .reset = StmtReset{} });
+            }
+
+            if (std.mem.eql(u8, line, keyword_ascii_rand) or std.mem.eql(u8, line, keyword_rand)) {
+                try stmts.append(allocator, Stmt{ .rand = StmtRand{} });
+            }
+
             if (has_affix(&affixes_move, line)) {
                 const num_str = strip_line(&affixes_move, line);
                 const n = try std.fmt.parseInt(u16, num_str, 10);
                 try stmts.append(allocator, Stmt{ .move = StmtMove{ .idx = n } });
             }
 
-            if (std.mem.eql(u8, line, "pd")) {
-                try stmts.append(allocator, Stmt{ .print_num = StmtPrintNum{} });
+            if (std.mem.eql(u8, line, keyword_ascii_print_digit) or std.mem.eql(u8, line, keyword_print_digit)) {
+                try stmts.append(allocator, Stmt{ .print_digit = StmtPrintDigit{} });
+            }
+
+            if (std.mem.eql(u8, line, keyword_ascii_print_unicode) or std.mem.eql(u8, line, keyword_print_unicode)) {
+                try stmts.append(allocator, Stmt{ .print_unicode = StmtPrintUnicode{} });
+            }
+
+            if (has_affix(&affixes_echo, line)) {
+                const text = strip_line(&affixes_echo, line);
+                try stmts.append(allocator, Stmt{ .echo = StmtEcho{ .str = text } });
             }
 
             // func definition
@@ -137,8 +179,7 @@ pub const Parser = struct {
                 try stmts.append(allocator, Stmt{ .func_call = StmtFuncCall{ .name = name } });
             }
 
-            // func definition
-            if (std.mem.eql(u8, "[", line)) {
+            if (std.mem.eql(u8, line, keyword_ascii_loop_start) or std.mem.eql(u8, line, keyword_loop_start)) {
                 const body = try self.parse_level(itr, .loop);
 
                 try stmts.append(allocator, Stmt{ .loop = StmtLoop{
@@ -146,12 +187,11 @@ pub const Parser = struct {
                 } });
             }
 
-            if (nest == .loop and std.mem.eql(u8, line, "]")) {
+            if (nest == .loop and (std.mem.eql(u8, line, keyword_ascii_loop_end) or std.mem.eql(u8, line, keyword_loop_end))) {
                 return stmts.toOwnedSlice(allocator);
             }
 
-            // func definition
-            if (std.mem.eql(u8, "?", line)) {
+            if (std.mem.eql(u8, line, keyword_ascii_cond_start) or std.mem.eql(u8, line, keyword_cond_start)) {
                 const body_then = try self.parse_level(itr, .cond_then);
                 const body_else = try self.parse_level(itr, .cond_else);
 
@@ -161,10 +201,10 @@ pub const Parser = struct {
                 } });
             }
 
-            if (nest == .cond_then and std.mem.eql(u8, line, ":")) {
+            if (nest == .cond_then and (std.mem.eql(u8, line, keyword_ascii_cond_else) or std.mem.eql(u8, line, keyword_cond_else))) {
                 return stmts.toOwnedSlice(allocator);
             }
-            if (nest == .cond_else and std.mem.eql(u8, line, ";")) {
+            if (nest == .cond_else and (std.mem.eql(u8, line, keyword_ascii_cond_end) or std.mem.eql(u8, line, keyword_cond_end))) {
                 return stmts.toOwnedSlice(allocator);
             }
         }
@@ -193,11 +233,34 @@ const StmtAdd = struct {
 const StmtMinus = struct {
     num: i32,
 };
+
+const StmtMulti = struct {
+    num: i32,
+};
+
+const StmtDiv = struct {
+    num: i32,
+};
+
+const StmtMod = struct {
+    num: i32,
+};
+
+const StmtReset = struct {};
+
+const StmtRand = struct {};
+
 const StmtMove = struct {
     idx: u16,
 };
 
-const StmtPrintNum = struct {};
+const StmtPrintDigit = struct {};
+
+const StmtPrintUnicode = struct {};
+
+const StmtEcho = struct {
+    str: []const u8,
+};
 
 const StmtFuncDef = struct {
     name: []const u8,
@@ -220,12 +283,19 @@ const StmtFuncCall = struct {
 pub const Stmt = union(StmtType) {
     add: StmtAdd,
     minus: StmtMinus,
+    multi: StmtMulti,
+    div: StmtDiv,
+    mod: StmtMod,
+    reset: StmtReset,
+    rand: StmtRand,
     move: StmtMove,
-    print_num: StmtPrintNum,
     func_def: StmtFuncDef,
     func_call: StmtFuncCall,
     loop: StmtLoop,
     cond: StmtCond,
+    print_digit: StmtPrintDigit,
+    print_unicode: StmtPrintUnicode,
+    echo: StmtEcho,
 };
 
 fn has_affix(affixes: []const Affix, line: []const u8) bool {
@@ -283,7 +353,7 @@ test "has prefix and suffix" {
     }
 }
 
-test "parse" {
+test "parse cell operations" {
     var parser = Parser.init(std.testing.allocator);
     defer parser.deinit();
 
@@ -291,16 +361,40 @@ test "parse" {
         \\@2
         \\+5
         \\-4
-        \\pd
+        \\*3
+        \\/2
+        \\%6
+        \\_
+        \\rand
     ;
     const result = try parser.parse(code);
 
     try std.testing.expectEqual(2, result[0].move.idx);
     try std.testing.expectEqual(5, result[1].add.num);
     try std.testing.expectEqual(4, result[2].minus.num);
-    try std.testing.expectEqual(StmtType.print_num, std.meta.activeTag(result[3]));
+    try std.testing.expectEqual(3, result[3].multi.num);
+    try std.testing.expectEqual(2, result[4].div.num);
+    try std.testing.expectEqual(6, result[5].mod.num);
+    try std.testing.expectEqual(StmtType.reset, std.meta.activeTag(result[6]));
+    try std.testing.expectEqual(StmtType.rand, std.meta.activeTag(result[7]));
 }
 
+test "parse print operations" {
+    var parser = Parser.init(std.testing.allocator);
+    defer parser.deinit();
+
+    const code =
+        \\pd
+        \\pu
+        \\echo "test"
+    ;
+    const result = try parser.parse(code);
+
+    try std.testing.expectEqual(StmtType.print_digit, std.meta.activeTag(result[0]));
+    try std.testing.expectEqual(StmtType.print_unicode, std.meta.activeTag(result[1]));
+    try std.testing.expectEqual(StmtType.echo, std.meta.activeTag(result[2]));
+    try std.testing.expectEqualStrings("test", result[2].echo.str);
+}
 test "parse function" {
     var parser = Parser.init(std.testing.allocator);
     defer parser.deinit();

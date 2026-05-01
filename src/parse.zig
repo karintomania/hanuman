@@ -58,7 +58,7 @@ const keyword_ascii_cond_end = ";";
 const keyword_rand = "名前を聞かれ思わずデタラメな名前を名乗ってしまった";
 const keyword_ascii_rand = "rand";
 const keyword_cr = "CR人間模様気付けばそれの虜になってる";
-const keyword_ascii_cr = "CR";
+const keyword_ascii_cr = "cr";
 
 const StmtType = enum {
     add,
@@ -124,12 +124,14 @@ pub const Parser = struct {
 
             if (has_affix(&affixes_div, line)) {
                 const num_str = strip_line(&affixes_div, line);
+                // TODO: zero check
                 const n = try std.fmt.parseInt(i32, num_str, 10);
                 try stmts.append(allocator, Stmt{ .div = StmtDiv{ .num = n } });
             }
 
             if (has_affix(&affixes_mod, line)) {
                 const num_str = strip_line(&affixes_mod, line);
+                // TODO: zero check
                 const n = try std.fmt.parseInt(i32, num_str, 10);
                 try stmts.append(allocator, Stmt{ .mod = StmtMod{ .num = n } });
             }

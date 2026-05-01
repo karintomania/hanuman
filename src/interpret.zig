@@ -28,16 +28,42 @@ pub const Interpreter = struct {
         for (stmts) |stmt| {
             switch (stmt) {
                 .add => |add| {
-                    memory[current] += add.num;
+                    memory[current] +%= add.num;
                 },
                 .minus => |minus| {
-                    memory[current] -= minus.num;
+                    memory[current] -%= minus.num;
+                },
+                .multi => |multi| {
+                    memory[current] *%= multi.num;
+                },
+                .div => |div| {
+                    memory[current] = @divTrunc(memory[current], div.num);
+                },
+                .mod => |mod| {
+                    memory[current] = @mod(memory[current], mod.num);
                 },
                 .move => |move| {
                     current = move.idx;
                 },
-                .print_num => {
+                .rand => {
+                    memory[current] = std.crypto.random.intRangeAtMost(
+                        i32,
+                        std.math.minInt(i32),
+                        std.math.maxInt(i32),
+                    );
+                },
+                .print_digit => {
                     std.debug.print("{d}", .{memory[current]});
+                },
+                .print_unicode => {
+                    const str = try self.get_unicode_str(memory[current]);
+                    std.debug.print("{s}", .{str});
+                },
+                .echo => |echo| {
+                    std.debug.print("{s}", .{echo.str});
+                },
+                .cr => {
+                    std.debug.print("\n", .{});
                 },
                 .func_def => |func_def| {
                     try self.defs.put(allocator, func_def.name, func_def.body);
@@ -58,8 +84,20 @@ pub const Interpreter = struct {
                         try self.interpret(cond.body_else);
                     }
                 },
+                else => {},
             }
         }
+    }
+
+    fn get_unicode_str(self: *Interpreter, u: i32) ![]u8 {
+        // discard extra bits
+        const c: u21 = @truncate(@as(u32, @bitCast(u)));
+        const len = try std.unicode.utf8CodepointSequenceLength(c);
+
+        const out = try self.arena.allocator().alloc(u8, len);
+        _ = try std.unicode.utf8Encode(c, out);
+
+        return out;
     }
 
     pub fn deinit(self: *Interpreter) void {

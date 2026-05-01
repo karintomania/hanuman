@@ -57,6 +57,8 @@ const keyword_cond_end = "答えになってないぜ兄さん";
 const keyword_ascii_cond_end = ";";
 const keyword_rand = "名前を聞かれ思わずデタラメな名前を名乗ってしまった";
 const keyword_ascii_rand = "rand";
+const keyword_cr = "CR人間模様気付けばそれの虜になってる";
+const keyword_ascii_cr = "CR";
 
 const StmtType = enum {
     add,
@@ -74,6 +76,7 @@ const StmtType = enum {
     print_digit,
     print_unicode,
     echo,
+    cr,
 };
 
 const Affix = struct {
@@ -156,6 +159,10 @@ pub const Parser = struct {
             if (has_affix(&affixes_echo, line)) {
                 const text = strip_line(&affixes_echo, line);
                 try stmts.append(allocator, Stmt{ .echo = StmtEcho{ .str = text } });
+            }
+
+            if (std.mem.eql(u8, line, keyword_ascii_cr) or std.mem.eql(u8, line, keyword_cr)) {
+                try stmts.append(allocator, Stmt{ .cr = StmtCR{} });
             }
 
             // func definition
@@ -262,6 +269,8 @@ const StmtEcho = struct {
     str: []const u8,
 };
 
+const StmtCR = struct {};
+
 const StmtFuncDef = struct {
     name: []const u8,
     body: []Stmt,
@@ -296,6 +305,7 @@ pub const Stmt = union(StmtType) {
     print_digit: StmtPrintDigit,
     print_unicode: StmtPrintUnicode,
     echo: StmtEcho,
+    cr: StmtCR,
 };
 
 fn has_affix(affixes: []const Affix, line: []const u8) bool {

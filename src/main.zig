@@ -5,7 +5,7 @@ const interpret = @import("interpret.zig");
 // 4MB
 const MAX_BYTES: usize = 4096 * 1000;
 
-pub fn main() !void {
+pub fn main() !u8 {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
     defer {
         const check = gpa.deinit();
@@ -18,7 +18,7 @@ pub fn main() !void {
 
     if (args.len > 2) {
         std.debug.print("Usage: hanuman [FILE]", .{});
-        return;
+        return 1;
     }
 
     const file_path = args[1];
@@ -30,9 +30,14 @@ pub fn main() !void {
 
     var parser = parse.Parser.init(allocator);
     defer parser.deinit();
-    const stmts = try parser.parse(code);
+    const stmts = parser.parse(code) catch {
+        std.debug.print("俺の知らない遊びを知ってそうでああなんか急に虚しくなる (Parse Error) at line {d}:\n\"{s}\"\n", .{ parser.line_num, parser.line_processing });
+        return 1;
+    };
 
     var interpreter = interpret.Interpreter.init(allocator);
     defer interpreter.deinit();
     try interpreter.interpret(stmts);
+
+    return 0;
 }

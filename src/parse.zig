@@ -86,9 +86,15 @@ const Affix = struct {
 
 pub const Parser = struct {
     arena: std.heap.ArenaAllocator,
+    line_num: usize,
+    line_processing: []const u8,
 
     pub fn init(allocator: Allocator) Parser {
-        return Parser{ .arena = .init(allocator) };
+        return Parser{
+            .arena = .init(allocator),
+            .line_num = 0,
+            .line_processing = "",
+        };
     }
 
     pub fn parse(self: *Parser, code: []const u8) ![]Stmt {
@@ -97,29 +103,42 @@ pub const Parser = struct {
         return stmt;
     }
 
+    // parse statement. Use recursion for loop/condition/function
     fn parse_level(self: *Parser, itr: *std.mem.SplitIterator(u8, .sequence), nest: NestableStmtType) ![]Stmt {
         var stmts: std.ArrayList(Stmt) = .empty;
         const allocator = self.arena.allocator();
 
         while (itr.next()) |line_raw| {
+            self.line_num += 1;
+            self.line_processing = line_raw;
+
             const line = std.mem.trim(u8, line_raw, " \t\r\n");
+
+            // skip empty lines
+            if (std.mem.eql(u8, line, "")) continue;
+
+            // skip comment
+            if (std.mem.eql(u8, line[0..1], "#")) continue;
 
             if (has_affix(&affixes_plus, line)) {
                 const num_str = strip_line(&affixes_plus, line);
                 const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .add = StmtAdd{ .num = n } });
+                continue;
             }
 
             if (has_affix(&affixes_minus, line)) {
                 const num_str = strip_line(&affixes_minus, line);
                 const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .minus = StmtMinus{ .num = n } });
+                continue;
             }
 
             if (has_affix(&affixes_multi, line)) {
                 const num_str = strip_line(&affixes_multi, line);
                 const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .multi = StmtMulti{ .num = n } });
+                continue;
             }
 
             if (has_affix(&affixes_div, line)) {
@@ -127,6 +146,7 @@ pub const Parser = struct {
                 // TODO: zero check
                 const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .div = StmtDiv{ .num = n } });
+                continue;
             }
 
             if (has_affix(&affixes_mod, line)) {
@@ -134,37 +154,45 @@ pub const Parser = struct {
                 // TODO: zero check
                 const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .mod = StmtMod{ .num = n } });
+                continue;
             }
 
             if (std.mem.eql(u8, line, keyword_ascii_reset_cell) or std.mem.eql(u8, line, keyword_reset_cell)) {
                 try stmts.append(allocator, Stmt{ .reset = StmtReset{} });
+                continue;
             }
 
             if (std.mem.eql(u8, line, keyword_ascii_rand) or std.mem.eql(u8, line, keyword_rand)) {
                 try stmts.append(allocator, Stmt{ .rand = StmtRand{} });
+                continue;
             }
 
             if (has_affix(&affixes_move, line)) {
                 const num_str = strip_line(&affixes_move, line);
                 const n = try std.fmt.parseInt(u16, num_str, 10);
                 try stmts.append(allocator, Stmt{ .move = StmtMove{ .idx = n } });
+                continue;
             }
 
             if (std.mem.eql(u8, line, keyword_ascii_print_digit) or std.mem.eql(u8, line, keyword_print_digit)) {
                 try stmts.append(allocator, Stmt{ .print_digit = StmtPrintDigit{} });
+                continue;
             }
 
             if (std.mem.eql(u8, line, keyword_ascii_print_unicode) or std.mem.eql(u8, line, keyword_print_unicode)) {
                 try stmts.append(allocator, Stmt{ .print_unicode = StmtPrintUnicode{} });
+                continue;
             }
 
             if (has_affix(&affixes_echo, line)) {
                 const text = strip_line(&affixes_echo, line);
                 try stmts.append(allocator, Stmt{ .echo = StmtEcho{ .str = text } });
+                continue;
             }
 
             if (std.mem.eql(u8, line, keyword_ascii_cr) or std.mem.eql(u8, line, keyword_cr)) {
                 try stmts.append(allocator, Stmt{ .cr = StmtCR{} });
+                continue;
             }
 
             // func definition
@@ -176,6 +204,7 @@ pub const Parser = struct {
                     .name = name,
                     .body = body,
                 } });
+                continue;
             }
 
             if (nest == .func and std.mem.eql(u8, line, "end_fn")) {
@@ -186,6 +215,7 @@ pub const Parser = struct {
             if (has_affix(&affixes_func_call, line)) {
                 const name = strip_line(&affixes_func_call, line);
                 try stmts.append(allocator, Stmt{ .func_call = StmtFuncCall{ .name = name } });
+                continue;
             }
 
             if (std.mem.eql(u8, line, keyword_ascii_loop_start) or std.mem.eql(u8, line, keyword_loop_start)) {
@@ -194,6 +224,7 @@ pub const Parser = struct {
                 try stmts.append(allocator, Stmt{ .loop = StmtLoop{
                     .body = body,
                 } });
+                continue;
             }
 
             if (nest == .loop and (std.mem.eql(u8, line, keyword_ascii_loop_end) or std.mem.eql(u8, line, keyword_loop_end))) {
@@ -208,6 +239,7 @@ pub const Parser = struct {
                     .body_then = body_then,
                     .body_else = body_else,
                 } });
+                continue;
             }
 
             if (nest == .cond_then and (std.mem.eql(u8, line, keyword_ascii_cond_else) or std.mem.eql(u8, line, keyword_cond_else))) {
@@ -216,6 +248,8 @@ pub const Parser = struct {
             if (nest == .cond_else and (std.mem.eql(u8, line, keyword_ascii_cond_end) or std.mem.eql(u8, line, keyword_cond_end))) {
                 return stmts.toOwnedSlice(allocator);
             }
+
+            return error.ParseError;
         }
 
         return stmts.toOwnedSlice(allocator);

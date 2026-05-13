@@ -28,22 +28,65 @@ pub const Interpreter = struct {
         for (stmts) |stmt| {
             switch (stmt) {
                 .add => |add| {
-                    memory[current] +%= add.num;
+                    switch (add.num) {
+                        .idx => |idx| {
+                            const n = memory[idx];
+                            memory[current] +%= n;
+                        },
+                        .n => |n| {
+                            memory[current] +%= n;
+                        },
+                    }
                 },
                 .minus => |minus| {
-                    memory[current] -%= minus.num;
+                    switch (minus.num) {
+                        .idx => |idx| {
+                            const n = memory[idx];
+                            memory[current] -%= n;
+                        },
+                        .n => |n| {
+                            memory[current] -%= n;
+                        },
+                    }
                 },
                 .multi => |multi| {
-                    memory[current] *%= multi.num;
+                    switch (multi.num) {
+                        .idx => |idx| {
+                            const n = memory[idx];
+                            memory[current] *%= n;
+                        },
+                        .n => |n| {
+                            memory[current] *%= n;
+                        },
+                    }
                 },
                 .div => |div| {
-                    memory[current] = @divTrunc(memory[current], div.num);
+                    switch (div.num) {
+                        .idx => |idx| {
+                            const n = memory[idx];
+                            memory[current] = @divTrunc(memory[current], n);
+                        },
+                        .n => |n| {
+                            memory[current] = @divTrunc(memory[current], n);
+                        },
+                    }
                 },
                 .mod => |mod| {
-                    memory[current] = @mod(memory[current], mod.num);
+                    switch (mod.num) {
+                        .idx => |idx| {
+                            const n = memory[idx];
+                            memory[current] = @mod(memory[current], n);
+                        },
+                        .n => |n| {
+                            memory[current] = @mod(memory[current], n);
+                        },
+                    }
                 },
                 .move => |move| {
                     current = move.idx;
+                },
+                .reset => {
+                    memory[current] = 0;
                 },
                 .rand => {
                     memory[current] = std.crypto.random.intRangeAtMost(
@@ -84,7 +127,7 @@ pub const Interpreter = struct {
                         try self.interpret(cond.body_else);
                     }
                 },
-                else => {},
+                // else => {},
             }
         }
     }
@@ -105,12 +148,21 @@ pub const Interpreter = struct {
     }
 };
 
-test "interpret" {
+test "interpret num operations" {
     const code =
-        \\@2
+        \\@1
         \\+5
         \\-4
-        \\pd
+        \\@2
+        \\+2
+        \\*3
+        \\/2
+        \\@3
+        \\+10
+        \\%3
+        \\@4
+        \\+20
+        \\_
     ;
 
     var parser = parse.Parser.init(std.testing.allocator);
@@ -123,8 +175,10 @@ test "interpret" {
     defer interpreter.deinit();
 
     try std.testing.expectEqual(0, memory[0]);
-    try std.testing.expectEqual(0, memory[1]);
-    try std.testing.expectEqual(1, memory[2]);
+    try std.testing.expectEqual(1, memory[1]);
+    try std.testing.expectEqual(3, memory[2]);
+    try std.testing.expectEqual(1, memory[3]);
+    try std.testing.expectEqual(0, memory[4]);
 }
 
 test "interpret function" {
@@ -175,6 +229,7 @@ test "interpret loop" {
     try std.testing.expectEqual(10, memory[1]);
     try std.testing.expectEqual(0, memory[2]);
 }
+
 test "interpret cond" {
     const code =
         \\fn_test

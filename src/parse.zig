@@ -106,33 +106,33 @@ pub const Parser = struct {
 
             if (has_affix(&affixes_plus, line)) {
                 const num_str = strip_line(&affixes_plus, line);
-                const n = try std.fmt.parseInt(i32, num_str, 10);
+                const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .add = StmtAdd{ .num = n } });
             }
 
             if (has_affix(&affixes_minus, line)) {
                 const num_str = strip_line(&affixes_minus, line);
-                const n = try std.fmt.parseInt(i32, num_str, 10);
+                const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .minus = StmtMinus{ .num = n } });
             }
 
             if (has_affix(&affixes_multi, line)) {
                 const num_str = strip_line(&affixes_multi, line);
-                const n = try std.fmt.parseInt(i32, num_str, 10);
+                const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .multi = StmtMulti{ .num = n } });
             }
 
             if (has_affix(&affixes_div, line)) {
                 const num_str = strip_line(&affixes_div, line);
                 // TODO: zero check
-                const n = try std.fmt.parseInt(i32, num_str, 10);
+                const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .div = StmtDiv{ .num = n } });
             }
 
             if (has_affix(&affixes_mod, line)) {
                 const num_str = strip_line(&affixes_mod, line);
                 // TODO: zero check
-                const n = try std.fmt.parseInt(i32, num_str, 10);
+                const n = try parse_number_expression(num_str);
                 try stmts.append(allocator, Stmt{ .mod = StmtMod{ .num = n } });
             }
 
@@ -226,6 +226,16 @@ pub const Parser = struct {
     }
 };
 
+fn parse_number_expression(str: []const u8) !Num {
+    if (std.mem.startsWith(u8, str, "&")) {
+        const idx = try std.fmt.parseInt(u16, str[1..], 10);
+        return Num{ .idx = idx };
+    }
+
+    const num = try std.fmt.parseInt(i32, str, 10);
+    return Num{ .n = num };
+}
+
 // use this to flag if current position is inside nested structure
 const NestableStmtType = enum {
     not_nested,
@@ -235,24 +245,34 @@ const NestableStmtType = enum {
     cond_else,
 };
 
+const NumType = enum {
+    n,
+    idx,
+};
+
+const Num = union(NumType) {
+    n: i32,
+    idx: u16,
+};
+
 const StmtAdd = struct {
-    num: i32,
+    num: Num,
 };
 
 const StmtMinus = struct {
-    num: i32,
+    num: Num,
 };
 
 const StmtMulti = struct {
-    num: i32,
+    num: Num,
 };
 
 const StmtDiv = struct {
-    num: i32,
+    num: Num,
 };
 
 const StmtMod = struct {
-    num: i32,
+    num: Num,
 };
 
 const StmtReset = struct {};
@@ -378,17 +398,19 @@ test "parse cell operations" {
         \\%6
         \\_
         \\rand
+        \\+&5
     ;
     const result = try parser.parse(code);
 
     try std.testing.expectEqual(2, result[0].move.idx);
-    try std.testing.expectEqual(5, result[1].add.num);
-    try std.testing.expectEqual(4, result[2].minus.num);
-    try std.testing.expectEqual(3, result[3].multi.num);
-    try std.testing.expectEqual(2, result[4].div.num);
-    try std.testing.expectEqual(6, result[5].mod.num);
+    try std.testing.expectEqual(5, result[1].add.num.n);
+    try std.testing.expectEqual(4, result[2].minus.num.n);
+    try std.testing.expectEqual(3, result[3].multi.num.n);
+    try std.testing.expectEqual(2, result[4].div.num.n);
+    try std.testing.expectEqual(6, result[5].mod.num.n);
     try std.testing.expectEqual(StmtType.reset, std.meta.activeTag(result[6]));
     try std.testing.expectEqual(StmtType.rand, std.meta.activeTag(result[7]));
+    try std.testing.expectEqual(5, result[8].add.num.idx);
 }
 
 test "parse print operations" {
@@ -407,6 +429,7 @@ test "parse print operations" {
     try std.testing.expectEqual(StmtType.echo, std.meta.activeTag(result[2]));
     try std.testing.expectEqualStrings("test", result[2].echo.str);
 }
+
 test "parse function" {
     var parser = Parser.init(std.testing.allocator);
     defer parser.deinit();
@@ -425,7 +448,7 @@ test "parse function" {
 
     const body = func_def.body;
     try std.testing.expectEqual(1, body.len);
-    try std.testing.expectEqual(5, body[0].add.num);
+    try std.testing.expectEqual(5, body[0].add.num.n);
 
     try std.testing.expectEqual(StmtType.func_call, std.meta.activeTag(result[1]));
     try std.testing.expectEqualStrings(result[1].func_call.name, "テスト");
@@ -447,8 +470,8 @@ test "parse loop" {
     try std.testing.expectEqual(StmtType.loop, std.meta.activeTag(result[0]));
     const body = result[0].loop.body;
     try std.testing.expectEqual(2, body.len);
-    try std.testing.expectEqual(3, body[0].add.num);
-    try std.testing.expectEqual(1, body[1].minus.num);
+    try std.testing.expectEqual(3, body[0].add.num.n);
+    try std.testing.expectEqual(1, body[1].minus.num.n);
 }
 
 test "parse loop inside function" {
@@ -473,7 +496,7 @@ test "parse loop inside function" {
 
     const loop_body = func_body[0].loop.body;
     try std.testing.expectEqual(1, loop_body.len);
-    try std.testing.expectEqual(3, loop_body[0].add.num);
+    try std.testing.expectEqual(3, loop_body[0].add.num.n);
 }
 
 test "parse condition" {
@@ -493,7 +516,7 @@ test "parse condition" {
     try std.testing.expectEqual(StmtType.cond, std.meta.activeTag(result[0]));
     const cond = result[0].cond;
     try std.testing.expectEqual(1, cond.body_then.len);
-    try std.testing.expectEqual(5, cond.body_then[0].add.num);
+    try std.testing.expectEqual(5, cond.body_then[0].add.num.n);
     try std.testing.expectEqual(1, cond.body_else.len);
-    try std.testing.expectEqual(2, cond.body_else[0].minus.num);
+    try std.testing.expectEqual(2, cond.body_else[0].minus.num.n);
 }

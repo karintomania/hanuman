@@ -47,6 +47,9 @@ const keyword_ascii_loop_start = "[";
 const keyword_loop_end = "全くを以って気に入らないね";
 const keyword_ascii_loop_end = "]";
 
+const keyword_func_end = "言う？武闘派に遭遇して同じように言う？";
+const keyword_ascii_func_end = "end_fn";
+
 const keyword_reset_cell = "およそ空っぽの頭の中やけに響く英語のアナウンス";
 const keyword_ascii_reset_cell = "_";
 const keyword_cond_start = "どうして?の問いに";
@@ -77,6 +80,12 @@ const StmtType = enum {
     print_unicode,
     echo,
     cr,
+};
+
+const UnmatchingStatement = error{
+    UnmatchingFunctionDefinition,
+    UnmatchingLoop,
+    UnmatchingCondition,
 };
 
 const Affix = struct {
@@ -207,7 +216,9 @@ pub const Parser = struct {
                 continue;
             }
 
-            if (nest == .func and std.mem.eql(u8, line, "end_fn")) {
+            if (std.mem.eql(u8, line, keyword_ascii_func_end) or std.mem.eql(u8, line, keyword_func_end)) {
+                if (nest != .func) return UnmatchingStatement.UnmatchingFunctionDefinition;
+
                 // error handling for other kind of end_xx
                 return stmts.toOwnedSlice(allocator);
             }
@@ -227,7 +238,9 @@ pub const Parser = struct {
                 continue;
             }
 
-            if (nest == .loop and (std.mem.eql(u8, line, keyword_ascii_loop_end) or std.mem.eql(u8, line, keyword_loop_end))) {
+            if (std.mem.eql(u8, line, keyword_ascii_loop_end) or std.mem.eql(u8, line, keyword_loop_end)) {
+                if (nest != .loop) return UnmatchingStatement.UnmatchingLoop;
+
                 return stmts.toOwnedSlice(allocator);
             }
 
@@ -242,10 +255,12 @@ pub const Parser = struct {
                 continue;
             }
 
-            if (nest == .cond_then and (std.mem.eql(u8, line, keyword_ascii_cond_else) or std.mem.eql(u8, line, keyword_cond_else))) {
+            if ((std.mem.eql(u8, line, keyword_ascii_cond_else) or std.mem.eql(u8, line, keyword_cond_else))) {
+                if (nest != .cond_then) return UnmatchingStatement.UnmatchingCondition;
                 return stmts.toOwnedSlice(allocator);
             }
-            if (nest == .cond_else and (std.mem.eql(u8, line, keyword_ascii_cond_end) or std.mem.eql(u8, line, keyword_cond_end))) {
+            if ((std.mem.eql(u8, line, keyword_ascii_cond_end) or std.mem.eql(u8, line, keyword_cond_end))) {
+                if (nest != .cond_else) return UnmatchingStatement.UnmatchingCondition;
                 return stmts.toOwnedSlice(allocator);
             }
 
@@ -262,11 +277,11 @@ pub const Parser = struct {
 
 fn parse_number_expression(str: []const u8) !Num {
     if (std.mem.startsWith(u8, str, "&")) {
-        const idx = try std.fmt.parseInt(u16, str[1..], 10);
+        const idx = std.fmt.parseInt(u16, str[1..], 10) catch return error.ParseError;
         return Num{ .idx = idx };
     }
 
-    const num = try std.fmt.parseInt(i32, str, 10);
+    const num = std.fmt.parseInt(i32, str, 10) catch return error.ParseError;
     return Num{ .n = num };
 }
 
@@ -553,4 +568,25 @@ test "parse condition" {
     try std.testing.expectEqual(5, cond.body_then[0].add.num.n);
     try std.testing.expectEqual(1, cond.body_else.len);
     try std.testing.expectEqual(2, cond.body_else[0].minus.num.n);
+}
+
+test "unmatching errors" {
+    var parser = Parser.init(std.testing.allocator);
+    defer parser.deinit();
+
+    _ = parser.parse("end_fn") catch |err| {
+        try std.testing.expectEqual(UnmatchingStatement.UnmatchingFunctionDefinition, err);
+    };
+
+    _ = parser.parse("]") catch |err| {
+        try std.testing.expectEqual(UnmatchingStatement.UnmatchingLoop, err);
+    };
+
+    _ = parser.parse("?") catch |err| {
+        try std.testing.expectEqual(UnmatchingStatement.UnmatchingCondition, err);
+    };
+
+    _ = parser.parse(";") catch |err| {
+        try std.testing.expectEqual(UnmatchingStatement.UnmatchingCondition, err);
+    };
 }

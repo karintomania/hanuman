@@ -16,7 +16,8 @@ WIP
 | ? | どうして?の問いに | Condition 開始 |
 | : | 愛してるって | Condition else |
 | ; | 答えになってないぜ兄さん | Condition 終了 |
-| fn_{func name}<br>endfn | そういちいち怒鳴るなって誰だって{func name}したい<br> 関数body 言う？武闘派に遭遇して同じように言う？ | 関数定義 |
+| fn_{func name} | そういちいち怒鳴るなって誰だって{func name}したい | 関数定義開始 |
+| end_fn | 言う？武闘派に遭遇して同じように言う？ | 関数定義終了 |
 | call_{func name} | もういちいち言わんだけで俺だって{func name}したい | 関数呼び出し |
 | pd | 換気口の下でギニアピッグが云う | セル値を数字として表示 |
 | pu | こめかみを指して痩せた鴉が云う | セル値をunicode pointとして表示 |

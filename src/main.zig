@@ -17,18 +17,12 @@ pub fn main() !u8 {
     const args = try std.process.argsAlloc(allocator);
     defer std.process.argsFree(allocator, args);
 
-    if (args.len < 2) {
-        std.debug.print(
-            \\Usage: hanuman [FILE]
-            \\Options:
-            \\  --lint [FILE]: replace ascii syntax of the specified file to full syntax
-        ,
-            .{},
-        );
+    if (args.len < 2 or 3 < args.len) {
+        usage();
         return 1;
     }
 
-    if (std.mem.eql(u8, args[1], "--lint")) {
+    if (args.len == 3) {
         const file_path = args[2];
         const file = try std.fs.cwd().openFile(file_path, .{ .mode = .read_write });
         defer file.close();
@@ -38,7 +32,16 @@ pub fn main() !u8 {
         var linter = lint.Linter.init(allocator);
         defer linter.deinit();
 
-        const linted = try linter.lint(code);
+        var linted: []const u8 = undefined;
+
+        if (std.mem.eql(u8, args[1], "--to-ascii")) {
+            linted = try linter.to_ascii(code);
+        } else if (std.mem.eql(u8, args[1], "--to-lyrics")) {
+            linted = try linter.to_lyrics(code);
+        } else {
+            usage();
+            return 1;
+        }
 
         try file.seekTo(0);
         try file.setEndPos(linted.len);
@@ -66,6 +69,17 @@ pub fn main() !u8 {
     try interpreter.interpret(stmts);
 
     return 0;
+}
+
+fn usage() void {
+    std.debug.print(
+        \\Usage: hanuman [FILE]
+        \\Options:
+        \\  --to-lyrics [FILE]: replace ascii syntax of the specified file to lyrics
+        \\  --to-ascii [FILE]: replace lyrics of the specified file to ascii syntax
+    ,
+        .{},
+    );
 }
 
 test {

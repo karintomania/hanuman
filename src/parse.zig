@@ -1,67 +1,67 @@
 const std = @import("std");
 const Allocator = std.mem.Allocator;
 
-const affixes_plus = [_]Affix{
+pub const affixes_plus = [_]Affix{
     .{ .prefix = "+", .suffix = "" },
     .{ .prefix = "たった", .suffix = "秒でも長く眠りたい" },
 };
-const affixes_minus = [_]Affix{
+pub const affixes_minus = [_]Affix{
     .{ .prefix = "-", .suffix = "" },
     .{ .prefix = "見張り番の俺の落ち度を糾弾", .suffix = "円奪って先輩消える" },
 };
-const affixes_multi = [_]Affix{
+pub const affixes_multi = [_]Affix{
     .{ .prefix = "*", .suffix = "" },
     .{ .prefix = "ヘッドホンをして", .suffix = "秒ごとに変わる表情" },
 };
-const affixes_div = [_]Affix{
+pub const affixes_div = [_]Affix{
     .{ .prefix = "/", .suffix = "" },
     .{ .prefix = "零コンマ", .suffix = "秒で片付く命" },
 };
-const affixes_mod = [_]Affix{
+pub const affixes_mod = [_]Affix{
     .{ .prefix = "%", .suffix = "" },
     .{ .prefix = "何しろ僕らは", .suffix = "歳だった" },
 };
-const affixes_move = [_]Affix{
+pub const affixes_move = [_]Affix{
     .{ .prefix = "@", .suffix = "" },
     .{ .prefix = "演奏ハヌマーンでアナーキー・イン・ザ・", .suffix = "K" },
 };
-const affixes_func_def = [_]Affix{
+pub const affixes_func_def = [_]Affix{
     .{ .prefix = "fn_", .suffix = "" },
     .{ .prefix = "そういちいち怒鳴るなって誰だって", .suffix = "したい" },
 };
-const affixes_func_call = [_]Affix{
+pub const affixes_func_call = [_]Affix{
     .{ .prefix = "call_", .suffix = "" },
     .{ .prefix = "もういちいち言わんだけで俺だって", .suffix = "したい" },
 };
-const affixes_echo = [_]Affix{
+pub const affixes_echo = [_]Affix{
     .{ .prefix = "echo \"", .suffix = "\"" },
     .{ .prefix = "捨て看板の女がぼやく「", .suffix = "」" },
 };
 
-const keyword_print_digit = "換気口の下でギニアピッグが云う";
-const keyword_ascii_print_digit = "pd";
-const keyword_print_unicode = "こめかみを指して痩せた鴉が云う";
-const keyword_ascii_print_unicode = "pu";
-const keyword_loop_start = "気に喰わんね輪廻の概念 ";
-const keyword_ascii_loop_start = "[";
-const keyword_loop_end = "全くを以って気に入らないね";
-const keyword_ascii_loop_end = "]";
+pub const keyword_print_digit = "換気口の下でギニアピッグが云う";
+pub const keyword_ascii_print_digit = "pd";
+pub const keyword_print_unicode = "こめかみを指して痩せた鴉が云う";
+pub const keyword_ascii_print_unicode = "pu";
+pub const keyword_loop_start = "気に喰わんね輪廻の概念";
+pub const keyword_ascii_loop_start = "[";
+pub const keyword_loop_end = "全くを以って気に入らないね";
+pub const keyword_ascii_loop_end = "]";
 
-const keyword_func_end = "言う？武闘派に遭遇して同じように言う？";
-const keyword_ascii_func_end = "end_fn";
+pub const keyword_func_end = "言う？武闘派に遭遇して同じように言う？";
+pub const keyword_ascii_func_end = "end_fn";
 
-const keyword_reset_cell = "およそ空っぽの頭の中やけに響く英語のアナウンス";
-const keyword_ascii_reset_cell = "_";
-const keyword_cond_start = "どうして?の問いに";
-const keyword_ascii_cond_start = "?";
-const keyword_cond_else = "愛してるって";
-const keyword_ascii_cond_else = ":";
-const keyword_cond_end = "答えになってないぜ兄さん";
-const keyword_ascii_cond_end = ";";
-const keyword_rand = "名前を聞かれ思わずデタラメな名前を名乗ってしまった";
-const keyword_ascii_rand = "rand";
-const keyword_cr = "CR人間模様気付けばそれの虜になってる";
-const keyword_ascii_cr = "cr";
+pub const keyword_reset_cell = "およそ空っぽの頭の中やけに響く英語のアナウンス";
+pub const keyword_ascii_reset_cell = "_";
+pub const keyword_cond_start = "どうして?の問いに";
+pub const keyword_ascii_cond_start = "?";
+pub const keyword_cond_else = "愛してるって";
+pub const keyword_ascii_cond_else = ":";
+pub const keyword_cond_end = "答えになってないぜ兄さん";
+pub const keyword_ascii_cond_end = ";";
+pub const keyword_rand = "名前を聞かれ思わずデタラメな名前を名乗ってしまった";
+pub const keyword_ascii_rand = "rand";
+pub const keyword_cr = "CR人間模様気付けばそれの虜になってる";
+pub const keyword_ascii_cr = "cr";
 
 const StmtType = enum {
     add,
@@ -88,7 +88,7 @@ const UnmatchingStatement = error{
     UnmatchingCondition,
 };
 
-const Affix = struct {
+pub const Affix = struct {
     prefix: []const u8,
     suffix: []const u8,
 };
@@ -379,7 +379,7 @@ pub const Stmt = union(StmtType) {
     cr: StmtCR,
 };
 
-fn has_affix(affixes: []const Affix, line: []const u8) bool {
+pub fn has_affix(affixes: []const Affix, line: []const u8) bool {
     for (affixes) |affix| {
         var matched = true;
         if (affix.prefix.len > 0 and !std.mem.startsWith(u8, line, affix.prefix)) {
@@ -396,7 +396,7 @@ fn has_affix(affixes: []const Affix, line: []const u8) bool {
 }
 
 // remove prefix and suffix
-fn strip_line(affixes: []const Affix, line: []const u8) []const u8 {
+pub fn strip_line(affixes: []const Affix, line: []const u8) []const u8 {
     var tmp = line;
 
     for (affixes) |affix| {

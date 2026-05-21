@@ -85,10 +85,10 @@ All three parts (`?`, `:`, `;`) are required — even if one branch is empty.
 ```
 %17
 ?
-    echo "divisible by 17"
+    echo "not divisible by 17"
     cr
 :
-    echo "not divisible by 17"
+    echo "divisible by 17"
     cr
 ;
 ```
@@ -120,6 +120,7 @@ echo "Hello World!"
 # fizz function — @2 holds target num, @4 holds printed flag
 fn_fizz
     @2
+    _
     +&1
     %3
     ?
@@ -128,13 +129,12 @@ fn_fizz
         @4
         +1
     ;
-    @2
-    _
 end_fn
 
 # buzz function — @3 holds target num, @4 holds printed flag
 fn_buzz
     @3
+    _
     +&1
     %5
     ?
@@ -143,8 +143,6 @@ fn_buzz
         @4
         +1
     ;
-    @3
-    _
 end_fn
 
 # @0 counter, @1 current number

@@ -178,8 +178,8 @@ pub const Parser = struct {
 
             if (has_affix(&affixes_move, line)) {
                 const num_str = strip_line(&affixes_move, line);
-                const n = try std.fmt.parseInt(u16, num_str, 10);
-                try stmts.append(allocator, Stmt{ .move = StmtMove{ .idx = n } });
+                const n = try parse_number_expression(num_str);
+                try stmts.append(allocator, Stmt{ .move = StmtMove{ .num = n } });
                 continue;
             }
 
@@ -329,7 +329,7 @@ const StmtReset = struct {};
 const StmtRand = struct {};
 
 const StmtMove = struct {
-    idx: u16,
+    num: Num,
 };
 
 const StmtPrintDigit = struct {};
@@ -451,7 +451,7 @@ test "parse cell operations" {
     ;
     const result = try parser.parse(code);
 
-    try std.testing.expectEqual(2, result[0].move.idx);
+    try std.testing.expectEqual(2, result[0].move.num.n);
     try std.testing.expectEqual(5, result[1].add.num.n);
     try std.testing.expectEqual(4, result[2].minus.num.n);
     try std.testing.expectEqual(3, result[3].multi.num.n);

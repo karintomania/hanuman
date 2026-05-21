@@ -11,6 +11,7 @@ var memory: [memory_capacity]i32 = undefined;
 pub const Interpreter = struct {
     arena: std.heap.ArenaAllocator,
     defs: std.StringHashMapUnmanaged([]Stmt),
+    current: u16,
 
     pub fn init(allocator: Allocator) Interpreter {
         // init memory
@@ -19,11 +20,11 @@ pub const Interpreter = struct {
         return Interpreter{
             .arena = .init(allocator),
             .defs = .empty,
+            .current = 0,
         };
     }
 
     pub fn interpret(self: *Interpreter, stmts: []Stmt) !void {
-        var current: u16 = 0;
         const allocator = self.arena.allocator();
         for (stmts) |stmt| {
             switch (stmt) {
@@ -31,10 +32,10 @@ pub const Interpreter = struct {
                     switch (add.num) {
                         .idx => |idx| {
                             const n = memory[idx];
-                            memory[current] +%= n;
+                            memory[self.current] +%= n;
                         },
                         .n => |n| {
-                            memory[current] +%= n;
+                            memory[self.current] +%= n;
                         },
                     }
                 },
@@ -42,10 +43,10 @@ pub const Interpreter = struct {
                     switch (minus.num) {
                         .idx => |idx| {
                             const n = memory[idx];
-                            memory[current] -%= n;
+                            memory[self.current] -%= n;
                         },
                         .n => |n| {
-                            memory[current] -%= n;
+                            memory[self.current] -%= n;
                         },
                     }
                 },
@@ -53,10 +54,10 @@ pub const Interpreter = struct {
                     switch (multi.num) {
                         .idx => |idx| {
                             const n = memory[idx];
-                            memory[current] *%= n;
+                            memory[self.current] *%= n;
                         },
                         .n => |n| {
-                            memory[current] *%= n;
+                            memory[self.current] *%= n;
                         },
                     }
                 },
@@ -64,10 +65,10 @@ pub const Interpreter = struct {
                     switch (div.num) {
                         .idx => |idx| {
                             const n = memory[idx];
-                            memory[current] = @divTrunc(memory[current], n);
+                            memory[self.current] = @divTrunc(memory[self.current], n);
                         },
                         .n => |n| {
-                            memory[current] = @divTrunc(memory[current], n);
+                            memory[self.current] = @divTrunc(memory[self.current], n);
                         },
                     }
                 },
@@ -75,31 +76,38 @@ pub const Interpreter = struct {
                     switch (mod.num) {
                         .idx => |idx| {
                             const n = memory[idx];
-                            memory[current] = @mod(memory[current], n);
+                            memory[self.current] = @mod(memory[self.current], n);
                         },
                         .n => |n| {
-                            memory[current] = @mod(memory[current], n);
+                            memory[self.current] = @mod(memory[self.current], n);
                         },
                     }
                 },
                 .move => |move| {
-                    current = move.idx;
+                    switch (move.num) {
+                        .idx => |idx| {
+                            self.current = @intCast(memory[idx]);
+                        },
+                        .n => |n| {
+                            self.current = @intCast(n);
+                        },
+                    }
                 },
                 .reset => {
-                    memory[current] = 0;
+                    memory[self.current] = 0;
                 },
                 .rand => {
-                    memory[current] = std.crypto.random.intRangeAtMost(
+                    memory[self.current] = std.crypto.random.intRangeAtMost(
                         i32,
                         std.math.minInt(i32),
                         std.math.maxInt(i32),
                     );
                 },
                 .print_digit => {
-                    std.debug.print("{d}", .{memory[current]});
+                    std.debug.print("{d}", .{memory[self.current]});
                 },
                 .print_unicode => {
-                    const str = try self.get_unicode_str(memory[current]);
+                    const str = try self.get_unicode_str(memory[self.current]);
                     std.debug.print("{s}", .{str});
                 },
                 .echo => |echo| {
@@ -116,12 +124,12 @@ pub const Interpreter = struct {
                     try self.interpret(body);
                 },
                 .loop => |loop| {
-                    while (memory[current] != 0) {
+                    while (memory[self.current] != 0) {
                         try self.interpret(loop.body);
                     }
                 },
                 .cond => |cond| {
-                    if (memory[current] != 0) {
+                    if (memory[self.current] != 0) {
                         try self.interpret(cond.body_then);
                     } else {
                         try self.interpret(cond.body_else);

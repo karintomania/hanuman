@@ -5,6 +5,7 @@ const interpret = @import("interpret.zig");
 
 // 4MB
 const MAX_BYTES: usize = 4096 * 1000;
+const VERSION: []const u8 = "0.1.0";
 
 pub fn main() !u8 {
     var gpa = std.heap.GeneralPurposeAllocator(.{}){};
@@ -20,6 +21,17 @@ pub fn main() !u8 {
     if (args.len < 2 or 3 < args.len) {
         usage();
         return 1;
+    }
+
+    if (args.len == 2) {
+        if (std.mem.eql(u8, args[1], "-h") or std.mem.eql(u8, args[1], "--help")) {
+            usage();
+            return 0;
+        }
+        if (std.mem.eql(u8, args[1], "-v") or std.mem.eql(u8, args[1], "--version")) {
+            std.debug.print("hanuman {s}\n", .{VERSION});
+            return 0;
+        }
     }
 
     if (args.len == 3) {
@@ -75,6 +87,8 @@ fn usage() void {
     std.debug.print(
         \\Usage: hanuman [FILE]
         \\Options:
+        \\  -h, --help: show this help message
+        \\  -v, --version: show version
         \\  --to-lyrics [FILE]: replace ascii syntax of the specified file to lyrics
         \\  --to-ascii [FILE]: replace lyrics of the specified file to ascii syntax
     ,
